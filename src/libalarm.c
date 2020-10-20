@@ -19,10 +19,10 @@ int write_to_file(Note note)
 
     switch (note.message.type)
     {
-        case 0:
+        case 1:
             fprintf(file, "Type: ALARM\n");
             break;
-        case 1:
+        case 2:
             fprintf(file, "Type: normalize\n");
             break;
         default:
@@ -32,16 +32,16 @@ int write_to_file(Note note)
 
     switch (note.message.priority)
     {
-        case 0:
+        case 1:
             fprintf(file, "Priority: very important\n");
             break;
-        case 1:
+        case 2:
             fprintf(file, "Priority: important\n");
             break;
-        case 2:
+        case 3:
             fprintf(file, "Priority: usally\n");
             break;
-        case 3:
+        case 4:
             fprintf(file, "Priority: not important\n");
             break;
         default:
@@ -56,42 +56,6 @@ int write_to_file(Note note)
 
     return 0;
 }
-
-/*static char *get_addr_sock()
-{
-    static int session = 0;
-    session++;
-    static int numb = 0;
-    int len = 0;
-    int tmp = numb;
-    for (len;;len++)
-    {
-        if (numb % 10 != 0)
-        {
-            tmp = tmp / 10;
-        }
-        else
-        {
-            break;
-        }
-    }
-    tmp = numb;
-    static char *buffer;
-    buffer = strcat(buffer, ADDR_OF_SOCKET);
-    char *buf = malloc(len);
-    for (int i = len - 1; i > -1; i--)
-    {
-        buf[i] = (tmp % 10) + '0';
-        tmp = tmp / 10;
-    }
-    buffer = strcat(buffer, buf);
-    if (session == 2)
-    {
-        numb++;
-        session = 0;
-    }
-    return buffer;
-}*/
 
 /*role: ZMQ_PUB/SUB, mode: 0/1(bind/connect), spec: always 0*/
 Connection create_connection(int role, int mode, int spec)
@@ -193,29 +157,29 @@ int read_from_file(Note *note_array, int size)
         sscanf(buffer, "Type: %s", buf);
         if(strncmp("ALARM", buf, 3) == 0)
         {
-            note_array[i].message.type = 0;
+            note_array[i].message.type = 1;
         }
         else
         {
-            note_array[i].message.type = 1;
+            note_array[i].message.type = 2;
         }
         fgets(buffer, 80, file);
         sscanf(buffer, "Priority: %s", buf);
         if (strncmp("very important", buf, 3) == 0)
         {
-            note_array[i].message.priority = 0;
+            note_array[i].message.priority = 1;
         }
         else if (strncmp("important", buf, 3) == 0)
         {
-            note_array[i].message.priority = 1;
+            note_array[i].message.priority = 2;
         }
         else if (strncmp("usally", buf, 3) == 0)
         {
-            note_array[i].message.priority = 2;
+            note_array[i].message.priority = 3;
         }
         else
         {
-            note_array[i].message.priority = 3;
+            note_array[i].message.priority = 4;
         }
         fgets(buffer, 80, file);
         strncpy(note_array[i].message.message_text, buffer, strlen(buffer) - 1);
@@ -301,7 +265,7 @@ int recv_all_message(Connection connection, Message *message_array, int quantity
     {
         recv_meassage(spec_connection, &message_array[i]);
     }
-    spec_connection = destroy_connection(spec_connection);
+    destroy_connection(spec_connection);
     return 0;
 }
 
@@ -321,7 +285,7 @@ int send_all_message(int max_quantity_message)
         zmq_send(spec_connection.socket, &note_array_for_send[i].message, sizeof(Message), 0);
     }
     free(note_array_for_send);
-    spec_connection = destroy_connection(spec_connection);
+    destroy_connection(spec_connection);
     return 0;
 }
 
@@ -332,4 +296,99 @@ Connection destroy_connection(Connection connection)
     connection.socket = NULL;
     connection.context = NULL;
     return connection;
+}
+
+int recv_by_filter(Connection connection, Message filter, Message *message_array)
+{
+    Connection spec_connection = create_connection(ZMQ_SUB, 0, 1);
+    if (NULL == spec_connection.socket || NULL == spec_connection.context)
+    {
+        printf("Error: create_connection() returned \"NULL\"\n");
+        return 3;
+    }
+    int check = 0;
+
+    check = send_signal(connection, GET_FILTER);
+    if (-1 == check)
+    {
+        printf("Error: send_signal()\n");
+        return check;
+    }
+    check = send_message(connection, filter);
+    if (-1 == check)
+    {
+        printf("Error: send_message()\n");
+        return check;
+    }
+    /**//**//**//**//**/sleep(1);/**//**//**//**//**/
+    for(int i = 0; i < 6; i++)
+    {
+        recv_meassage(spec_connection, &message_array[i]);
+    }
+    return 0;
+}
+
+int send_by_filter(Message filter, int quantity)
+{
+    Connection spec_connection = create_connection(ZMQ_PUB, 1, 1);
+    if (NULL == spec_connection.socket || NULL == spec_connection.context)
+    {
+        printf("Error: create_connection() returned \"NULL\"\n");
+        return 3;
+    }
+    int check = 0;
+    Note *note_array = (Note*)calloc(quantity, sizeof(Note));
+
+    sleep(1);
+    read_from_file(note_array, quantity);
+    for(int i = 0; i < quantity; i++)
+    {
+        if(0 != message_compare(note_array[i].message, filter))
+        {
+            zmq_send(spec_connection.socket, &note_array[i].message, sizeof(Message), 0);
+        }
+    }
+    free(note_array);
+    destroy_connection(spec_connection);
+    return 0;
+}
+
+/*zero - not equal, higher than zero - equal*/
+int message_compare(Message message, Message filter)
+{
+    int likeness = 0;
+    int fields = 0;
+    if (0 != strcmp(filter.modul, ""))
+    {
+        fields = fields + 1;
+        if (0 == strcmp(message.modul, filter.modul))
+        {
+            likeness = likeness + 1;
+        }
+    }
+    if (0 != filter.type)
+    {
+        fields = fields + 2;
+        if(message.type == filter.type)
+        {
+            likeness = likeness + 2;
+        }
+    }
+    if (0 != filter.priority)
+    {
+        fields = fields + 3;
+        if(message.priority == filter.priority)
+        {
+            likeness = likeness + 3;
+        }
+    }
+    if (fields == likeness)
+    {
+        return likeness;
+    }
+    else
+    {
+        return 0;
+    }
+
 }

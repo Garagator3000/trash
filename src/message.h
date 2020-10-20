@@ -13,16 +13,16 @@ char const PATH_TO_SOCKET[] = "/tmp/alarm_manager/";
 
 typedef enum Message_type
 {
-    ALARM = 0,
-    NORMALIZE = 1,
+    ALARM = 1,
+    NORMALIZE = 2,
 } Message_type;
 
 typedef enum Message_priority
 {
-    VERY_IMPORTANT = 0,
-    IMPORTANT = 1,
-    USALLY = 2,
-    NOT_IMPORTANT = 3,
+    VERY_IMPORTANT = 1,
+    IMPORTANT = 2,
+    USALLY = 3,
+    NOT_IMPORTANT = 4,
 } Message_priority;
 
 typedef struct Message
@@ -65,3 +65,6 @@ int recv_meassage(Connection connection, Message *message);
 int recv_all_message(Connection connection, Message *message_array, int quantity);
 int send_all_message(int max_quantity_message);
 Connection destroy_connection(Connection connection);
+int recv_by_filter(Connection connection, Message filter, Message *message_array);
+int send_by_filter(Message filter, int quantity);
+int message_compare(Message message, Message filter);

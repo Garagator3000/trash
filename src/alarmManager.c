@@ -79,7 +79,8 @@ int main(int argc, char *argv[])
             break;
 
         case GET_FILTER:
-
+            recv_meassage(connection, &note.message);
+            send_by_filter(note.message, max_quantity_message);
             break;
 
         default:
