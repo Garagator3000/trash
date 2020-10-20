@@ -5,45 +5,48 @@
 
 int main(int argc, char *argv[])
 {
+    int return_value = 0;
 
-    if(2 != argc)
-    {
-        printf("Enter: ./alarmManager (max_quantity_message)\n");
-        goto finally;
-    }
-    int max_quantity_message = atoi(argv[1]) - 1;
-
-
-    /*Creating a directory for storing a socket*/
-    struct stat st  = {0};
-    if(-1 == stat (PATH_TO_SOCKET, &st))
-    {
-        if(-1 == mkdir(PATH_TO_SOCKET, 0777))
-        {
-            printf("Error: socket directory not created\n");
-            goto finally;
-        }
-    }
     struct Connection connection = create_connection(ZMQ_SUB, 0, 0);
-    if(NULL == connection.context || NULL == connection.socket)
+    if (NULL == connection.context || NULL == connection.socket)
     {
         printf("Error: create_connection() returned \"NULL\"\n");
         printf("Try \"sudo\"\n");
+        return_value = 3;
         goto finally;
     }
 
-    struct Note note;
-    time_t timer;
-    struct Note *note_array;
-    note_array = (Note*)calloc(max_quantity_message, sizeof(Note));
+    if (2 != argc)
+    {
+        printf("Enter: ./alarmManager (max_quantity_message)\n");
+        return_value = 1;
+        goto finally;
+    }
 
-    enum Message_signal sig;
+    int max_quantity_message = atoi(argv[1]) - 1;
+    struct stat st  = {0};      //to check for the existence of a directory
+    struct Note note;           //buffer for recv and writing to file
+    time_t timer = 0;           //buffer for get local time
+    struct Note *note_array;    //buffer array for reading and writing
+    note_array = (Note*)calloc(max_quantity_message, sizeof(Note));
+    enum Message_signal sig = DEFAULT;
+
+    /*Creating a directory for storing a socket*/
+    if (-1 == stat (PATH_TO_SOCKET, &st))
+    {
+        if (-1 == mkdir(PATH_TO_SOCKET, 0777))
+        {
+            printf("Error: socket directory not created\n");
+            return_value = 2;
+            goto finally;
+        }
+    }
 
     /*Infinite loop for listening to a socket*/
-    for(;;)
+    for (;;)
     {
         sig = DEFAULT;
-        zmq_recv(connection.socket, &sig, sizeof(int), 0);
+        recv_signal(connection, &sig);
         switch (sig)
         {
         case SEND_MESSAGE:
@@ -52,16 +55,16 @@ int main(int argc, char *argv[])
             note.registration_time = *localtime(&timer);
             read_from_file(note_array, max_quantity_message);
             delete_all_messages();
-            if(1 == write_to_file(note))
+            if (1 == write_to_file(note))
             {
                 printf("Error: error writing to file\n");
                 break;
             }
-            for(int i = 0; i < max_quantity_message; i++)
+            for (int i = 0; i < max_quantity_message; i++)
             {
-                if(1 == write_to_file(note_array[i]))
+                if (2 == write_to_file(note_array[i]))
                 {
-                    printf("Error: error writing to file\n");
+                    //printf("Error: error writing to file\n");
                     break;
                 }
             }
@@ -74,10 +77,15 @@ int main(int argc, char *argv[])
         case GET_ALL:
             send_all_message(max_quantity_message);
             break;
+
+        case GET_FILTER:
+
+            break;
+
         default:
             break;
         }
     }
 finally:
-    return 0;
+    return return_value;
 }

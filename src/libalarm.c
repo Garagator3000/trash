@@ -8,16 +8,16 @@ int write_to_file(Note note)
         return 1; //file not open
     }
     char str_time[32];
-    if(0 == note.registration_time.tm_year)
+    if (0 == note.registration_time.tm_year)
     {
-        return 0;
+        return 2; //nothing to write
     }
     strftime(str_time, 32, "date: %x time: %X", &note.registration_time);
     fprintf(file, "Registration time: %s\n", str_time);
 
     fprintf(file, "Modul: %s\n", note.message.modul);
 
-    switch(note.message.type)
+    switch (note.message.type)
     {
         case 0:
             fprintf(file, "Type: ALARM\n");
@@ -30,7 +30,7 @@ int write_to_file(Note note)
             break;
     }
 
-    switch(note.message.priority)
+    switch (note.message.priority)
     {
         case 0:
             fprintf(file, "Priority: very important\n");
@@ -57,51 +57,87 @@ int write_to_file(Note note)
     return 0;
 }
 
+/*static char *get_addr_sock()
+{
+    static int session = 0;
+    session++;
+    static int numb = 0;
+    int len = 0;
+    int tmp = numb;
+    for (len;;len++)
+    {
+        if (numb % 10 != 0)
+        {
+            tmp = tmp / 10;
+        }
+        else
+        {
+            break;
+        }
+    }
+    tmp = numb;
+    static char *buffer;
+    buffer = strcat(buffer, ADDR_OF_SOCKET);
+    char *buf = malloc(len);
+    for (int i = len - 1; i > -1; i--)
+    {
+        buf[i] = (tmp % 10) + '0';
+        tmp = tmp / 10;
+    }
+    buffer = strcat(buffer, buf);
+    if (session == 2)
+    {
+        numb++;
+        session = 0;
+    }
+    return buffer;
+}*/
+
 /*role: ZMQ_PUB/SUB, mode: 0/1(bind/connect), spec: always 0*/
-Connection create_connection (int role, int mode, int spec)
+Connection create_connection(int role, int mode, int spec)
 {
     struct Connection connection = {NULL, NULL};
     char *addr_of_socket;
 
-    if(0 == spec)
+    if (0 == spec)
     {
-        addr_of_socket = ADDR_OF_SOCKET;
+        addr_of_socket = "ipc:///tmp/alarm_manager/sock0";
     }
     else
     {
-        char *addr_of_socket = SPEC_ADDR_OF_SOCKET;//get_addr_sock();
+        addr_of_socket = "ipc:///tmp/alarm_manager/sock1";//get_addr_sock();
     }
     int check;
 
-    if(role != ZMQ_SUB && role != ZMQ_PUB)
+    if (role != ZMQ_SUB && role != ZMQ_PUB)
     {
-        printf ("Error: invalid value \"role\"\n");
+        printf("Error: invalid value \"role\"\n");
         return connection;
     }
 
     void *context = zmq_ctx_new ();
-    if(NULL == context)
+    if (NULL == context)
     {
-        printf ("Error: zmq_ctx_new(): %s", zmq_strerror(errno));
+        printf("Error: zmq_ctx_new(): %s", zmq_strerror(errno));
         return connection;
     }
     void *socket = zmq_socket (context, role);
-    if(NULL == socket)
+    if (NULL == socket)
     {
         printf ("Error: zmq_soocket(): %s\n", zmq_strerror(errno));
         return connection;
     }
 
-    if(0 == mode)
+    if (0 == mode)
     {
         check = zmq_bind(socket, addr_of_socket);
-        if(-1 == check)
+        if (-1 == check)
         {
             printf("Error: zmq_bind(): %s\n", zmq_strerror(errno));
             return connection;
         }
         check = zmq_setsockopt(socket, ZMQ_SUBSCRIBE, 0, 0);
-        if(-1 == check)
+        if (-1 == check)
         {
             printf("Error: zmq_setsockopt() %s\n", zmq_strerror(errno));
             return connection;
@@ -109,12 +145,12 @@ Connection create_connection (int role, int mode, int spec)
         connection.context = context;
         connection.socket = socket;
     }
-    else if(1 == mode)
+    else if (1 == mode)
     {
         check = zmq_connect(socket, addr_of_socket);
-        if(-1 == check)
+        if (-1 == check)
         {
-            printf ("Error: zmq_connect(): %s\n", zmq_strerror(errno));
+            printf("Error: zmq_connect(): %s\n", zmq_strerror(errno));
             return connection;
         }
         connection.context = context;
@@ -131,7 +167,7 @@ Connection create_connection (int role, int mode, int spec)
 int read_from_file(Note *note_array, int size)
 {
     FILE *file = fopen(PATH_TO_FILE, "r");
-    if(NULL == file)
+    if (NULL == file)
     {
         return 1; //file not open
     }
@@ -139,7 +175,7 @@ int read_from_file(Note *note_array, int size)
     char buffer[80];    //buffer for read line
     char buf[8];        //buffer for value
 
-    for(int i = 0; i < size; i++)
+    for (int i = 0; i < size; i++)
     {
         fgets(buffer, 80, file);
         sscanf(buffer, "Registration time: date: %d/%d/%d time: %d:%d:%d",
@@ -165,7 +201,7 @@ int read_from_file(Note *note_array, int size)
         }
         fgets(buffer, 80, file);
         sscanf(buffer, "Priority: %s", buf);
-        if(strncmp("very important", buf, 3) == 0)
+        if (strncmp("very important", buf, 3) == 0)
         {
             note_array[i].message.priority = 0;
         }
@@ -173,7 +209,7 @@ int read_from_file(Note *note_array, int size)
         {
             note_array[i].message.priority = 1;
         }
-        else if(strncmp("usally", buf, 3) == 0)
+        else if (strncmp("usally", buf, 3) == 0)
         {
             note_array[i].message.priority = 2;
         }
@@ -185,11 +221,11 @@ int read_from_file(Note *note_array, int size)
         strncpy(note_array[i].message.message_text, buffer, strlen(buffer) - 1);
 
         fgets(buffer, 2, file);
-        if(strncmp("\n\n", buffer, 2) == 0)
+        if (strncmp("\n\n", buffer, 2) == 0)
         {
             continue;
         }
-        if(feof(file))
+        if (feof(file))
         {
             break;
         }
@@ -202,7 +238,7 @@ int read_from_file(Note *note_array, int size)
 int delete_all_messages()
 {
     FILE *file = fopen(PATH_TO_FILE, "w");
-    if(NULL == file)
+    if (NULL == file)
     {
         return 1;   //file not open
     }
@@ -212,8 +248,15 @@ int delete_all_messages()
 
 int send_signal(Connection connection, Message_signal sig)
 {
-    int check;
-    check = zmq_send(connection.socket, &sig, 4, ZMQ_DONTWAIT);
+    int check = 0;
+    check = zmq_send(connection.socket, &sig, sizeof(Message_signal), ZMQ_DONTWAIT);
+    return check;
+}
+
+int recv_signal(Connection connection, Message_signal *sig)
+{
+    int check = 0;
+    check = zmq_recv(connection.socket, sig, sizeof(Message_signal), 0);
     return check;
 }
 
@@ -221,7 +264,7 @@ int send_message(Connection connection, Message message)
 {
     int check;
     check = send_signal(connection, SEND_MESSAGE);
-    if(-1 == check)
+    if (-1 == check)
     {
         printf("Error: send_signal()\n");
         return check;
@@ -240,67 +283,53 @@ int recv_meassage(Connection connection, Message *message)
 /*how much is ready to get, as much memory allocate*/
 int recv_all_message(Connection connection, Message *message_array, int quantity)
 {
+    struct Connection spec_connection = create_connection(ZMQ_SUB, 0, 1);
+    if (NULL == spec_connection.context || NULL == spec_connection.socket)
+    {
+        printf("Error: create_spec_connection() returned \"NULL\"\n");
+        return 3;
+    }
     int check;
     check = send_signal(connection, GET_ALL);
-    if(-1 == check)
+    if (-1 == check)
     {
         printf("Error: send_signal()\n");
         return check;
     }
-    struct Connection spec_connection = create_connection(ZMQ_SUB, 0, 1);
-    zmq_sleep(1);
-    for(int i = 0; i < quantity; i++)
+    sleep(1);
+    for (int i = 0; i < quantity; i++)
     {
         recv_meassage(spec_connection, &message_array[i]);
     }
+    spec_connection = destroy_connection(spec_connection);
     return 0;
 }
 
 int send_all_message(int max_quantity_message)
 {
     struct Connection spec_connection = create_connection(ZMQ_PUB, 1, 1);
-    zmq_sleep(1);
+    if (NULL == spec_connection.context || NULL == spec_connection.socket)
+    {
+        printf("Error: create_connection() returned \"NULL\"\n");
+        return 3;
+    }
+    sleep(1);
     struct Note *note_array_for_send = (Note*)calloc(max_quantity_message, sizeof(Note));
     read_from_file(note_array_for_send, max_quantity_message);
-    for(int i = 0; i < max_quantity_message; i++)
+    for (int i = 0; i <= max_quantity_message; i++)
     {
-        send_message(spec_connection, note_array_for_send[i].message);
+        zmq_send(spec_connection.socket, &note_array_for_send[i].message, sizeof(Message), 0);
     }
+    free(note_array_for_send);
+    spec_connection = destroy_connection(spec_connection);
     return 0;
 }
 
-static char *get_addr_sock()
+Connection destroy_connection(Connection connection)
 {
-    static int session = 0;
-    session++;
-    static int numb = 0;
-    int len = 0;
-    int tmp = numb;
-    for(len;;len++)
-    {
-        if(numb % 10 != 0)
-        {
-            tmp = tmp / 10;
-        }
-        else
-        {
-            break;
-        }
-    }
-    tmp = numb;
-    static char *buffer;
-    buffer = strcat(buffer, ADDR_OF_SOCKET);
-    char *buf = malloc(len);
-    for(int i = len - 1; i > -1; i--)
-    {
-        buf[i] = (tmp % 10) + '0';
-        tmp = tmp / 10;
-    }
-    buffer = strcat(buffer, buf);
-    if(session == 2)
-    {
-        numb++;
-        session = 0;
-    }
-    return buffer;
+    zmq_close(connection.socket);
+    zmq_ctx_destroy(connection.context);
+    connection.socket = NULL;
+    connection.context = NULL;
+    return connection;
 }

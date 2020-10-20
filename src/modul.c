@@ -7,14 +7,14 @@ int main (int argc, char *argv[])
 
     struct Message message;
     strcpy (message.modul, argv[0]);
-    message.type = ALARM;
-    message.priority = VERY_IMPORTANT;
+    message.type = NORMALIZE;
+    message.priority = USALLY;
     strcpy (message.message_text, "any text");
-
-    sleep(1);
     int check;
+    sleep(1);
     for(int i = 0; i < atoi(argv[1]); i++)
     {
+        //sleep(1);
         check = send_message(connection, message);
         if(-1 == check)
         {
@@ -23,6 +23,9 @@ int main (int argc, char *argv[])
         }
     }
 
+
+
 finally:
+    connection = destroy_connection(connection);
     return 0;
 }

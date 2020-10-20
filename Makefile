@@ -7,7 +7,7 @@ libalarm.o: src/libalarm.c
 	gcc -fPIC -c src/libalarm.c
 
 alarmManager: alarmManager.o
-	gcc alarmManager.o -o alarmManager -L. -lalarm -lzmq
+	gcc -pthread alarmManager.o -o alarmManager -L. -lalarm -lzmq
 
 alarmManager.o: src/alarmManager.c
 	gcc -c src/alarmManager.c
