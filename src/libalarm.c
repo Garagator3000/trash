@@ -1,17 +1,118 @@
 #include "message.h"
 
-int write_to_file(Note note)
+/*role: PUBLISHER/SUBSCRIBER, mode: 0/1(bind/connect), spec: always 0*/
+int create_connection(
+    struct Connection *connection,
+    enum Role role,
+    int mode,
+    int spec)
 {
+    char *addr_of_socket;
+    int check = 0;
+
+    if (0 == spec)
+    {
+        addr_of_socket = "ipc:///tmp/alarm_manager/sock0";
+    }
+    else
+    {
+        addr_of_socket = "ipc:///tmp/alarm_manager/sock1";
+    }
+
+    if (role != SUBSCRIBER && role != PUBLISHER)
+    {
+        printf("Error: invalid value \"role\"\n");
+        check = -1;
+        goto finally;
+    }
+
+    void *context = zmq_ctx_new ();
+    if (NULL == context)
+    {
+        printf("Error: zmq_ctx_new(): %s", zmq_strerror(errno));
+        check = -1;
+        goto finally;
+    }
+    void *socket = zmq_socket (context, role);
+    if (NULL == socket)
+    {
+        printf ("Error: zmq_soocket(): %s\n", zmq_strerror(errno));
+        check = -1;
+        goto finally;
+    }
+
+    if (0 == mode)
+    {
+        check = zmq_bind(socket, addr_of_socket);
+        if (-1 == check)
+        {
+            printf("Error: zmq_bind(): %s\n", zmq_strerror(errno));
+            goto finally;
+        }
+        check = zmq_setsockopt(socket, ZMQ_SUBSCRIBE, 0, 0);
+        if (-1 == check)
+        {
+            printf("Error: zmq_setsockopt() %s\n", zmq_strerror(errno));
+            goto finally;
+        }
+        connection->context = context;
+        connection->socket = socket;
+    }
+    else if (1 == mode)
+    {
+        check = zmq_connect(socket, addr_of_socket);
+        if (-1 == check)
+        {
+            printf("Error: zmq_connect(): %s\n", zmq_strerror(errno));
+            goto finally;
+        }
+        connection->context = context;
+        connection->socket = socket;
+    }
+    else
+    {
+        printf("Error: invalid arguments\n");
+        check = -1;
+        goto finally;
+    }
+
+ finally:
+    return check;
+}
+
+/*not sure about how this function works*/
+int destroy_connection(
+    struct Connection *connection)
+{
+    zmq_close(connection->socket);
+    zmq_ctx_destroy(connection->context);
+    connection->socket = NULL;
+    connection->context = NULL;
+    return 0;
+}
+
+/*Write to "messages.txt" a note.
+/*str_time[32] - string to form a normal representation of time:
+"date: mm/dd/yy time: hh:mi:ss".*/
+int write_to_file(
+    struct Note note)
+{
+    int check = 0;
+    char str_time[32];
+
     FILE *file = fopen(PATH_TO_FILE, "a");
     if (NULL == file)
     {
-        return 1; //file not open
+        check = -1;
+        goto finally;
     }
-    char str_time[32];
+
     if (0 == note.registration_time.tm_year)
     {
-        return 2; //nothing to write
+        check = -2;
+        goto finally;
     }
+
     strftime(str_time, 32, "date: %x time: %X", &note.registration_time);
     fprintf(file, "Registration time: %s\n", str_time);
 
@@ -26,7 +127,7 @@ int write_to_file(Note note)
             fprintf(file, "Type: normalize\n");
             break;
         default:
-            return 2; //not valid value type
+            return 2;
             break;
     }
 
@@ -52,88 +153,25 @@ int write_to_file(Note note)
     fprintf(file, "%s", note.message.message_text);
     fprintf(file, "\n\n");
 
-    fclose(file);
-
-    return 0;
+ finally:
+    if (NULL != file)
+    {
+        fclose(file);
+    }
+    return check;
 }
 
-/*role: ZMQ_PUB/SUB, mode: 0/1(bind/connect), spec: always 0*/
-Connection create_connection(int role, int mode, int spec)
+int read_from_file(
+    struct Note *note_array,
+    int size)
 {
-    struct Connection connection = {NULL, NULL};
-    char *addr_of_socket;
+    int check = 0;
 
-    if (0 == spec)
-    {
-        addr_of_socket = "ipc:///tmp/alarm_manager/sock0";
-    }
-    else
-    {
-        addr_of_socket = "ipc:///tmp/alarm_manager/sock1";//get_addr_sock();
-    }
-    int check;
-
-    if (role != ZMQ_SUB && role != ZMQ_PUB)
-    {
-        printf("Error: invalid value \"role\"\n");
-        return connection;
-    }
-
-    void *context = zmq_ctx_new ();
-    if (NULL == context)
-    {
-        printf("Error: zmq_ctx_new(): %s", zmq_strerror(errno));
-        return connection;
-    }
-    void *socket = zmq_socket (context, role);
-    if (NULL == socket)
-    {
-        printf ("Error: zmq_soocket(): %s\n", zmq_strerror(errno));
-        return connection;
-    }
-
-    if (0 == mode)
-    {
-        check = zmq_bind(socket, addr_of_socket);
-        if (-1 == check)
-        {
-            printf("Error: zmq_bind(): %s\n", zmq_strerror(errno));
-            return connection;
-        }
-        check = zmq_setsockopt(socket, ZMQ_SUBSCRIBE, 0, 0);
-        if (-1 == check)
-        {
-            printf("Error: zmq_setsockopt() %s\n", zmq_strerror(errno));
-            return connection;
-        }
-        connection.context = context;
-        connection.socket = socket;
-    }
-    else if (1 == mode)
-    {
-        check = zmq_connect(socket, addr_of_socket);
-        if (-1 == check)
-        {
-            printf("Error: zmq_connect(): %s\n", zmq_strerror(errno));
-            return connection;
-        }
-        connection.context = context;
-        connection.socket = socket;
-    }
-    else
-    {
-        printf("Error: invalid arguments\n");
-        return connection;
-    }
-    return connection;
-}
-/*------------------------------------------------------------------------------------*/
-int read_from_file(Note *note_array, int size)
-{
     FILE *file = fopen(PATH_TO_FILE, "r");
     if (NULL == file)
     {
-        return 1; //file not open
+        check = -1;
+        goto finally;
     }
 
     char buffer[80];    //buffer for read line
@@ -194,168 +232,235 @@ int read_from_file(Note *note_array, int size)
             break;
         }
     }
-    fclose(file);
-    return 0;
-}
 
-/*delete only your messages*/
-int delete_all_messages()
-{
-    FILE *file = fopen(PATH_TO_FILE, "w");
-    if (NULL == file)
+ finally:
+    if (NULL != file)
     {
-        return 1;   //file not open
+        fclose(file);
     }
-    fclose(file);
     return 0;
 }
 
-int send_signal(Connection connection, Message_signal sig)
+int send_signal(
+    struct Connection connection,
+    enum Message_signal sig)
 {
     int check = 0;
     check = zmq_send(connection.socket, &sig, sizeof(Message_signal), ZMQ_DONTWAIT);
     return check;
 }
 
-int recv_signal(Connection connection, Message_signal *sig)
+int recv_signal(
+    struct Connection connection,
+    enum Message_signal *sig)
 {
     int check = 0;
     check = zmq_recv(connection.socket, sig, sizeof(Message_signal), 0);
     return check;
 }
 
-int send_message(Connection connection, Message message)
+int send_message(
+    struct Connection connection,
+    struct Message message)
 {
-    int check;
+    int check = 0;
     check = send_signal(connection, SEND_MESSAGE);
     if (-1 == check)
     {
         printf("Error: send_signal()\n");
-        return check;
+        goto finally;
     }
     check = zmq_send(connection.socket, &message, sizeof(Message), ZMQ_DONTWAIT);
+
+ finally:
     return check;
 }
 
-int recv_meassage(Connection connection, Message *message)
+int recv_meassage(
+    struct Connection connection,
+    struct Message *message)
 {
-    int check;
-    zmq_recv(connection.socket, message, sizeof(Message), 0);
+    int check = 0;
+    check = zmq_recv(connection.socket, message, sizeof(Message), 0);
     return check;
 }
 
 /*how much is ready to get, as much memory allocate*/
-int recv_all_message(Connection connection, Message *message_array, int quantity)
+int recv_all_message(
+    struct Connection connection,
+    struct Message *message_array,
+    int quantity)
 {
-    struct Connection spec_connection = create_connection(ZMQ_SUB, 0, 1);
-    if (NULL == spec_connection.context || NULL == spec_connection.socket)
+    int check = 0;
+    struct Connection spec_connection = {NULL, NULL};
+    check = create_connection(&spec_connection, SUBSCRIBER, 0, 1);
+    if (-1 == check)
     {
-        printf("Error: create_spec_connection() returned \"NULL\"\n");
-        return 3;
+        printf("Error: create_spec_connection()\n");
+        goto finally;
     }
-    int check;
+
     check = send_signal(connection, GET_ALL);
     if (-1 == check)
     {
         printf("Error: send_signal()\n");
-        return check;
+        goto finally;
     }
     sleep(1);
     for (int i = 0; i < quantity; i++)
     {
-        recv_meassage(spec_connection, &message_array[i]);
+        check = recv_meassage(spec_connection, &message_array[i]);
+        if(-1 == check)
+        {
+            printf("Error: recv_message()\n");
+            goto finally;
+        }
     }
-    destroy_connection(spec_connection);
-    return 0;
+
+ finally:
+    destroy_connection(&spec_connection);
+    return check;
 }
 
-int send_all_message(int max_quantity_message)
+int send_all_message(
+    int max_quantity_message)
 {
-    struct Connection spec_connection = create_connection(ZMQ_PUB, 1, 1);
-    if (NULL == spec_connection.context || NULL == spec_connection.socket)
+    int check = 0;
+    struct Connection spec_connection = {NULL, NULL};
+    check = create_connection(&spec_connection, PUBLISHER, 1, 1);
+    if (-1 == check)
     {
-        printf("Error: create_connection() returned \"NULL\"\n");
-        return 3;
+        printf("Error: create_connection()\n");
+        goto finally;
     }
     sleep(1);
     struct Note *note_array_for_send = (Note*)calloc(max_quantity_message, sizeof(Note));
-    read_from_file(note_array_for_send, max_quantity_message);
+    check = read_from_file(note_array_for_send, max_quantity_message);
+    if(-1 == check)
+    {
+        printf("Error: read_from_file()\n");
+        goto finally;
+    }
     for (int i = 0; i <= max_quantity_message; i++)
     {
-        zmq_send(spec_connection.socket, &note_array_for_send[i].message, sizeof(Message), 0);
+        check = zmq_send(spec_connection.socket,
+            &note_array_for_send[i].message, sizeof(Message), 0);
+        if (-1 == check)
+        {
+            printf("Error: zmq_send(): %s\n", zmq_strerror(errno));
+            goto finally;
+        }
     }
+
+ finally:
     free(note_array_for_send);
-    destroy_connection(spec_connection);
-    return 0;
+    destroy_connection(&spec_connection);
+    return check;
 }
 
-Connection destroy_connection(Connection connection)
+/*delete only your messages*/
+int delete_all_messages(void)
 {
-    zmq_close(connection.socket);
-    zmq_ctx_destroy(connection.context);
-    connection.socket = NULL;
-    connection.context = NULL;
-    return connection;
-}
-
-int recv_by_filter(Connection connection, Message filter, Message *message_array)
-{
-    Connection spec_connection = create_connection(ZMQ_SUB, 0, 1);
-    if (NULL == spec_connection.socket || NULL == spec_connection.context)
-    {
-        printf("Error: create_connection() returned \"NULL\"\n");
-        return 3;
-    }
     int check = 0;
+    FILE *file = fopen(PATH_TO_FILE, "w");
+    if (NULL == file)
+    {
+        check = -1;
+        goto finally;
+    }
+
+    fclose(file);
+
+ finally:
+    return check;
+}
+
+int recv_by_filter(
+    struct Connection connection,
+    struct Message filter,
+    struct Message *message_array)
+{
+    int check = 0;
+    struct Connection spec_connection = {NULL, NULL};
+    check = create_connection(&spec_connection, SUBSCRIBER, 0, 1);
+    if (-1 == check)
+    {
+        printf("Error: create_connection()\n");
+        goto finally;
+    }
 
     check = send_signal(connection, GET_FILTER);
     if (-1 == check)
     {
         printf("Error: send_signal()\n");
-        return check;
+        goto finally;
     }
     check = send_message(connection, filter);
     if (-1 == check)
     {
         printf("Error: send_message()\n");
-        return check;
+        goto finally;
     }
     /**//**//**//**//**/sleep(1);/**//**//**//**//**/
     for(int i = 0; i < 6; i++)
     {
-        recv_meassage(spec_connection, &message_array[i]);
+        check = recv_meassage(spec_connection, &message_array[i]);
+        if (-1 == check)
+        {
+            printf("Error: recv_message()\n");
+            goto finally;
+        }
     }
-    return 0;
+
+ finally:
+    return check;
 }
 
-int send_by_filter(Message filter, int quantity)
+int send_by_filter(
+    struct Message filter,
+    int quantity)
 {
-    Connection spec_connection = create_connection(ZMQ_PUB, 1, 1);
-    if (NULL == spec_connection.socket || NULL == spec_connection.context)
-    {
-        printf("Error: create_connection() returned \"NULL\"\n");
-        return 3;
-    }
     int check = 0;
-    Note *note_array = (Note*)calloc(quantity, sizeof(Note));
+    struct Connection spec_connection = {NULL, NULL};
+    check = create_connection(&spec_connection, PUBLISHER, 1, 1);
+    if (-1 == check)
+    {
+        printf("Error: create_connection()\n");
+        goto finally;
+    }
+
+    struct Note *note_array = (Note*)calloc(quantity, sizeof(Note));
 
     sleep(1);
+
     read_from_file(note_array, quantity);
     for(int i = 0; i < quantity; i++)
     {
         if(0 != message_compare(note_array[i].message, filter))
         {
-            zmq_send(spec_connection.socket, &note_array[i].message, sizeof(Message), 0);
+            check = zmq_send(spec_connection.socket, &note_array[i].message,
+                sizeof(Message), 0);
+
+            if (-1 == check)
+            {
+                printf("Error: zmq_send: %s\n", zmq_strerror(errno));
+                goto finally;
+            }
         }
     }
+
+ finally:
     free(note_array);
-    destroy_connection(spec_connection);
+    destroy_connection(&spec_connection);
     return 0;
 }
 
 /*zero - not equal, higher than zero - equal*/
-int message_compare(Message message, Message filter)
+int message_compare(
+    struct Message message,
+    struct Message filter)
 {
+    int return_value = 0;
     int likeness = 0;
     int fields = 0;
     if (0 != strcmp(filter.modul, ""))
@@ -384,11 +489,7 @@ int message_compare(Message message, Message filter)
     }
     if (fields == likeness)
     {
-        return likeness;
+        return_value = likeness;
     }
-    else
-    {
-        return 0;
-    }
-
+    return return_value;
 }

@@ -4,21 +4,26 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h> //временно
-#include <pthread.h>
 
 char const PATH_TO_FILE[] = "messages.txt";
 char const PATH_TO_SOCKET[] = "/tmp/alarm_manager/";
-//char const ADDR_OF_SOCKET[] = "ipc:///tmp/alarm_manager/sock";
-//char const SPEC_ADDR_OF_SOCKET[] = "ipc:///tmp/alarm_manager/sock0";
+
+typedef enum Role
+{
+    PUBLISHER = ZMQ_PUB,
+    SUBSCRIBER = ZMQ_SUB,
+} Role;
 
 typedef enum Message_type
 {
+    NO_TYPE = 0,
     ALARM = 1,
     NORMALIZE = 2,
 } Message_type;
 
 typedef enum Message_priority
 {
+    NO_PRIORITY = 0,
     VERY_IMPORTANT = 1,
     IMPORTANT = 2,
     USALLY = 3,
@@ -54,17 +59,57 @@ typedef enum Message_signal
     DEFAULT = 16,
 } Message_signal;
 
-int write_to_file(Note note);
-Connection create_connection(int role, int mode, int spec);
-int read_from_file(Note *note_array, int size);
-int delete_all_messages();
-int send_signal(Connection connection, Message_signal sig);
-int recv_signal(Connection connection, Message_signal *sig);
-int send_message(Connection connection, Message message);
-int recv_meassage(Connection connection, Message *message);
-int recv_all_message(Connection connection, Message *message_array, int quantity);
-int send_all_message(int max_quantity_message);
-Connection destroy_connection(Connection connection);
-int recv_by_filter(Connection connection, Message filter, Message *message_array);
-int send_by_filter(Message filter, int quantity);
-int message_compare(Message message, Message filter);
+int create_connection(
+    struct Connection *connection,
+    enum Role role,
+    int mode,
+    int spec);
+
+int destroy_connection(
+    struct Connection *connection);
+
+int write_to_file(
+    struct Note note);
+
+int read_from_file(
+    struct Note *note_array,
+    int size);
+
+int send_signal(
+    struct Connection connection,
+    enum Message_signal sig);
+
+int recv_signal(
+    struct Connection connection,
+    enum Message_signal *sig);
+
+int send_message(
+    struct Connection connection,
+    struct Message message);
+
+int recv_meassage(
+    struct Connection connection,
+    struct Message *message);
+
+int recv_all_message(
+    struct Connection connection,
+    struct Message *message_array,
+    int quantity);
+
+int send_all_message(
+    int max_quantity_message);
+
+int delete_all_messages(void);
+
+int recv_by_filter(
+    struct Connection connection,
+    struct Message filter,
+    struct Message *message_array);
+
+int send_by_filter(
+    struct Message filter,
+    int quantity);
+
+int message_compare(
+    struct Message message,
+    struct Message filter);
