@@ -3,7 +3,8 @@
 
 int main (int argc, char *argv[])
 {
-    struct Connection connection = create_connection(ZMQ_PUB, 1, 0);
+    struct Connection connection = {NULL, NULL};
+    create_connection(&connection, ZMQ_PUB, 1, 0);
 
     struct Message message;
     strcpy (message.modul, argv[0]);
@@ -11,7 +12,7 @@ int main (int argc, char *argv[])
     message.priority = USALLY;
     strcpy (message.message_text, "any text");
     int check;
-    sleep(1);
+    for(int i = 0; i < 1000000; i++);
     for(int i = 0; i < atoi(argv[1]); i++)
     {
         //sleep(1);
@@ -26,6 +27,6 @@ int main (int argc, char *argv[])
 
 
 finally:
-    connection = destroy_connection(connection);
+    destroy_connection(&connection);
     return 0;
 }

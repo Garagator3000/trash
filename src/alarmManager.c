@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
         goto finally;
     }
 
-    int max_quantity_message = atoi(argv[1]) - 1;
+    int max_quantity_message = atoi(argv[1]);
     struct stat st  = {0};      /*to check for the existence of a directory*/
     struct Note note;           /*buffer for recv and writing to file*/
     time_t timer = 0;           /*buffer for get local time*/
@@ -43,6 +43,10 @@ int main(int argc, char *argv[])
 
     return_value = read_from_file(note_array, max_quantity_message);
     delete_all_messages();
+    for(int i = 0; i < max_quantity_message; i++)
+    {
+        write_to_file(note_array[i]);
+    }
 
     /*Infinite loop for listening to a socket*/
     for (;;)
@@ -62,11 +66,10 @@ int main(int argc, char *argv[])
                 printf("Error: error writing to file\n");
                 break;
             }
-            for (int i = 0; i < max_quantity_message; i++)
+            for (int i = 0; i < max_quantity_message - 1; i++)
             {
                 if (-2 == write_to_file(note_array[i]))
                 {
-                    //printf("Error: error writing to file\n");
                     break;
                 }
             }
@@ -81,8 +84,13 @@ int main(int argc, char *argv[])
             break;
 
         case GET_FILTER:
+            recv_signal(connection, &sig);
             recv_meassage(connection, &note.message);
             send_by_filter(note.message, max_quantity_message);
+            break;
+
+        case GET_MAX_NUMB:
+            send_quantity(max_quantity_message);
             break;
 
         default:

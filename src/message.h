@@ -56,6 +56,7 @@ typedef enum Message_signal
     DELETE_ALL = 1,
     GET_ALL = 2,
     GET_FILTER = 3,
+    GET_MAX_NUMB = 4,
     DEFAULT = 16,
 } Message_signal;
 
@@ -104,7 +105,8 @@ int delete_all_messages(void);
 int recv_by_filter(
     struct Connection connection,
     struct Message filter,
-    struct Message *message_array);
+    struct Message *message_array,
+    int quantity);
 
 int send_by_filter(
     struct Message filter,
@@ -113,3 +115,9 @@ int send_by_filter(
 int message_compare(
     struct Message message,
     struct Message filter);
+
+int send_quantity(
+    int quantity);
+
+int recv_quantity(
+    struct Connection);
