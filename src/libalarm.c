@@ -78,6 +78,7 @@ int create_connection(
     }
 
  finally:
+
     return check;
 }
 
@@ -89,6 +90,7 @@ int destroy_connection(
     zmq_ctx_destroy(connection->context);
     connection->socket = NULL;
     connection->context = NULL;
+
     return 0;
 }
 
@@ -155,10 +157,12 @@ int write_to_file(
     fprintf(file, "\n\n");
 
  finally:
+
     if (NULL != file)
     {
         fclose(file);
     }
+
     return check;
 }
 
@@ -239,6 +243,7 @@ int read_from_file(
     {
         fclose(file);
     }
+
     return 0;
 }
 
@@ -248,6 +253,7 @@ int send_signal(
 {
     int check = 0;
     check = zmq_send(connection.socket, &sig, sizeof(Message_signal), ZMQ_DONTWAIT);
+
     return check;
 }
 
@@ -257,6 +263,7 @@ int recv_signal(
 {
     int check = 0;
     check = zmq_recv(connection.socket, sig, sizeof(Message_signal), 0);
+
     return check;
 }
 
@@ -274,6 +281,7 @@ int send_message(
     check = zmq_send(connection.socket, &message, sizeof(Message), ZMQ_DONTWAIT);
 
  finally:
+
     return check;
 }
 
@@ -283,6 +291,7 @@ int recv_meassage(
 {
     int check = 0;
     check = zmq_recv(connection.socket, message, sizeof(Message), 0);
+
     return check;
 }
 
@@ -334,6 +343,7 @@ int recv_all_message(
     }
 
  finally:
+
     return return_value;
 }
 
@@ -372,8 +382,10 @@ int send_all_message(
     }
 
  finally:
+
     free(note_array_for_send);
     destroy_connection(&spec_connection);
+
     return check;
 }
 
@@ -391,6 +403,7 @@ int delete_all_messages(void)
     fclose(file);
 
  finally:
+
     return check;
 }
 
@@ -449,6 +462,7 @@ int recv_by_filter(
     }
 
  finally:
+
     return return_value;
 }
 
@@ -485,8 +499,10 @@ int send_by_filter(
     send_signal(spec_connection, DEFAULT);
 
  finally:
+
     free(note_array);
     destroy_connection(&spec_connection);
+
     return 0;
 }
 
@@ -526,6 +542,7 @@ int message_compare(
     {
         return_value = likeness;
     }
+
     return return_value;
 }
 
@@ -542,7 +559,9 @@ int send_quantity(
     for(int i = 0; i < 1000000; i++);
     check = zmq_send(spec_connection.socket, &quantity, sizeof(int), 0);
  finally:
+
     destroy_connection(&spec_connection);
+
     return check;
 }
 
@@ -561,6 +580,8 @@ int recv_quantity(
     zmq_recv(spec_connection.socket, &check, sizeof(int), 0);
 
  finally:
+
     destroy_connection(&spec_connection);
+
     return check;
 }

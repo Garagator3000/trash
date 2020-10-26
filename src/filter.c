@@ -23,7 +23,6 @@ int main(int argc, char *argv[])
     struct Message *message_array = (Message*)calloc(quantity, sizeof(Message));
 
     //return_value = recv_by_filter(connection, filter, message_array, quantity);
-
     return_value = recv_all_message(connection, message_array, quantity);
     if (-1 == return_value)
     {
@@ -38,6 +37,8 @@ int main(int argc, char *argv[])
     }
 
  finally:
+
     free(message_array);
+
     return return_value;
 }

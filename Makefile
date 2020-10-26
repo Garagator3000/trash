@@ -1,4 +1,4 @@
-all: libalarm.so alarmManager modul deleter filter
+all: libalarm.so alarmManager modul other_modul filter
 
 libalarm.so: libalarm.o
 	gcc -shared -o libalarm.so libalarm.o
@@ -24,11 +24,11 @@ filter: filter.o
 filter.o: src/filter.c
 	gcc -c src/filter.c
 
-deleter: deleter.o
-	gcc deleter.o -o deleter -L. -lalarm -lzmq
+other_modul: other_modul.o
+	gcc other_modul.o -o other_modul -L. -lalarm -lzmq
 
-deleter.o: src/deleter.c
-	gcc -c src/deleter.c
+other_modul.o: src/other_modul.c
+	gcc -c src/other_modul.c
 
 clean:
 	rm -f *.o

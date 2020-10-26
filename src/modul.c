@@ -27,6 +27,8 @@ int main (int argc, char *argv[])
 
 
 finally:
+
     destroy_connection(&connection);
+
     return 0;
 }
