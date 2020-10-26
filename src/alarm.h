@@ -1,12 +1,27 @@
+#ifndef ALARM_H
+#define ALARM_H
+
 #include <zmq.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h> //временно
 
-char const PATH_TO_FILE[] = "messages.txt";
-char const PATH_TO_SOCKET[] = "/tmp/alarm_manager/";
+static char const PATH_TO_FILE[] = "../messages.txt";
+static char const PATH_TO_SOCKET[] = "/tmp/alarm_manager/";
+
+typedef enum Not_magic_number
+{
+    DATE_TIME_MAX_SIZE = 30,
+    MESSAGE_MODULE_SIZE = 60,
+    MESSAGE_TEXT_SIZE = 60,
+    /*sizeof "very important"*/
+    READ_BUFF_SIZE = 15,
+    MAX_QUANTITY_MESSAGES = 8000,
+    HIGH_WATER_MARK = 100000000,
+    MAX_SIZE_SOCKET_PATH = 64,
+    DELAY_ITER = 1000000,
+} Not_magic_number;
 
 typedef enum Role
 {
@@ -26,16 +41,26 @@ typedef enum Message_priority
     NO_PRIORITY = 0,
     VERY_IMPORTANT = 1,
     IMPORTANT = 2,
-    USALLY = 3,
+    USUALLY = 3,
     NOT_IMPORTANT = 4,
 } Message_priority;
 
+
+typedef enum Message_signal
+{
+    SEND_MESSAGE = 0,
+    DELETE_ALL = 1,
+    GET_ALL = 2,
+    GET_FILTER = 3,
+    GET_MAX_NUMB = 4,
+    DEFAULT = 16,
+} Message_signal;
 typedef struct Message
 {
-    char modul[64];
+    char module[MESSAGE_MODULE_SIZE];
     Message_type type;
     Message_priority priority;
-    char message_text[64];
+    char message_text[MESSAGE_TEXT_SIZE];
 } Message;
 
 typedef struct Note
@@ -50,74 +75,76 @@ typedef struct Connection
     void *socket;
 } Connection;
 
-typedef enum Message_signal
-{
-    SEND_MESSAGE = 0,
-    DELETE_ALL = 1,
-    GET_ALL = 2,
-    GET_FILTER = 3,
-    GET_MAX_NUMB = 4,
-    DEFAULT = 16,
-} Message_signal;
-
-int create_connection(
+int alarm__create_connection(
     struct Connection *connection,
     enum Role role,
-    int mode,
     int spec);
 
-int destroy_connection(
+int alarm__destroy_connection(
     struct Connection *connection);
 
-int write_to_file(
+int alarm__write_to_file(
     struct Note note);
 
-int read_from_file(
+int alarm__read_from_file(
     struct Note *note_array,
     int size);
 
-int send_signal(
+int alarm__send_signal(
     struct Connection connection,
     enum Message_signal sig);
 
-int recv_signal(
+int alarm__recv_signal(
     struct Connection connection,
     enum Message_signal *sig);
 
-int send_message(
+int alarm__send_message(
     struct Connection connection,
     struct Message message);
 
-int recv_meassage(
+int alarm__recv_message(
     struct Connection connection,
     struct Message *message);
 
-int recv_all_message(
+int alarm__recv_all_message(
     struct Connection connection,
     struct Message *message_array,
     int quantity);
 
-int send_all_message(
+int alarm__send_all_message(
     int max_quantity_message);
 
-int delete_all_messages(void);
+int alarm__delete_my_messages(void);
 
-int recv_by_filter(
+int alarm__recv_by_filter(
     struct Connection connection,
     struct Message filter,
     struct Message *message_array,
     int quantity);
 
-int send_by_filter(
+int alarm__send_by_filter(
     struct Message filter,
     int quantity);
 
-int message_compare(
+int alarm__message_compare(
     struct Message message,
     struct Message filter);
 
-int send_quantity(
+int alarm__send_quantity(
     int quantity);
 
-int recv_quantity(
-    struct Connection);
+int alarm__recv_quantity(
+    struct Connection connection);
+
+void alarm__delay(
+    int x);
+
+int alarm__open_file_first_time(
+    struct Note *note_array,
+    int max_quantity_messages);
+
+int alarm__delete_all_messages(
+    struct Connection connection
+);
+
+#endif
